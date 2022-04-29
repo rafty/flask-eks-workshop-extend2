@@ -1,7 +1,7 @@
 import aws_cdk as core
 import aws_cdk.assertions as assertions
 
-from flask_eks_workshop_extend2.flask_eks_workshop_extend2_stack import FlaskEksWorkshopExtend2Stack
+from _stacks.flask_eks_workshop_extend2_stack import FlaskEksWorkshopExtend2Stack
 
 # example tests. To run these tests, uncomment this file along with the example
 # resource in flask_eks_workshop_extend2/flask_eks_workshop_extend2_stack.py
