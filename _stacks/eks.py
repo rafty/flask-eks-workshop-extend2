@@ -17,6 +17,7 @@ class EksStack(Stack):
         super().__init__(scope, construct_id, **kwargs)
 
         self.configure = {
+            'vpc_name': 'ekshandson',
             'vpc_cidr': '10.10.0.0/16',
             'cluster_name': 'ekshandson',
 
@@ -46,15 +47,15 @@ class EksStack(Stack):
         #       Fluentbit
         self.create_eks()
 
-        # # sub_domain の証明書の参照
-        # # ↓ 手動作成で要らなくなった
-        # # self.refer_certificate()
-        # # Deploy frontend app
-        # self.deploy_frontend()
-        #
+        # sub_domain の証明書の参照
+        # ↓ 手動作成で要らなくなった
+        # self.refer_certificate()
+        # Deploy frontend app
+        self.deploy_frontend()
+
         # # Deploy backend app
-        # self.create_dynamodb()
-        # self.deploy_backend()
+        self.create_dynamodb()
+        self.deploy_backend()
 
     def create_vpc(self):
         # --------------------------------------------------------------
@@ -64,6 +65,7 @@ class EksStack(Stack):
         self.resources['vpc'] = aws_ec2.Vpc(
             self,
             'Vpc',
+            vpc_name=self.configure.get('vpc_name'),
             cidr=self.configure.get('vpc_cidr'),
             max_azs=2,
             nat_gateways=1,
@@ -73,7 +75,7 @@ class EksStack(Stack):
                     subnet_type=aws_ec2.SubnetType.PUBLIC,
                     cidr_mask=24),
                 aws_ec2.SubnetConfiguration(
-                    name="EKS-Application",
+                    name="Application",
                     subnet_type=aws_ec2.SubnetType.PRIVATE_WITH_NAT,
                     cidr_mask=24),
                 aws_ec2.SubnetConfiguration(
@@ -132,12 +134,12 @@ class EksStack(Stack):
         self.install_external_dns()
 
         # ----------------------------------------------------------
-        # Cloudwatch Container Insights - Metrics
+        # Cloudwatch Container Insights - Metrics / CloudWatch Agent
         # ----------------------------------------------------------
         self.deploy_cloudwatch_container_insights_metrics()
 
         # ----------------------------------------------------------
-        # Cloudwatch Container Insights - Logs
+        # Cloudwatch Container Insights - Logs / fluentbit
         # ----------------------------------------------------------
         self.deploy_cloudwatch_container_insights_logs()
         return
@@ -600,7 +602,7 @@ class EksStack(Stack):
         frontend_service.node.add_dependency(frontend_deployment)
 
         # --------------------------------------------------------------
-        # Ingress - ALB  Cert  R53 record
+        # Ingress - ALB, Cert,  R53 record
         # --------------------------------------------------------------
         _cert_arn = self.configure.get('cert_arn')
         _sub_domain = self.configure.get('sub_domain')
@@ -615,8 +617,8 @@ class EksStack(Stack):
                     'kubernetes.io/ingress.class': 'alb',  # 追加
                     'alb.ingress.kubernetes.io/scheme': 'internet-facing',
                     'alb.ingress.kubernetes.io/target-type': 'ip',
+                    # 'alb.ingress.kubernetes.io/listen-ports': '[{"HTTP": 80}, {"HTTPS": 443}]' # default
                     'alb.ingress.kubernetes.io/certificate-arn': _cert_arn,
-                    ここの動作を確認すること
                     'external-dns.alpha.kubernetes.io/hostname': _sub_domain,
                     # aliasレコードでも動くのか？
                     # 'external-dns.alpha.kubernetes.io/alias': 'true',
@@ -753,7 +755,7 @@ class EksStack(Stack):
                 aws_iam.PolicyStatement.from_json(statement)
             )
 
-        # --------------------------------------------------------------
+        # ----------------------------------------------------------
         # backend Deployment
         # ----------------------------------------------------------
         backend_deployment_manifest = {
